@@ -40,12 +40,12 @@ async def on_startup():
     logger.info("Ilova ishga tushmoqda...")
 
 
-# Ilova to'xtaganda webhook ni o'chirish
-async def on_shutdown():
-    await bot.delete_webhook()
-    await dp.bot.get_session().close()
-    logger.info("Webhook o'chirildi.")
-    logger.info("Bot sessiyasi yopildi.")
+# # Ilova to'xtaganda webhook ni o'chirish
+# async def on_shutdown():
+#     await bot.delete_webhook()
+#     await dp.bot.get_session().close()
+#     logger.info("Webhook o'chirildi.")
+#     logger.info("Bot sessiyasi yopildi.")
 
 
 # Asosiy URL uchun oddiy javob
