@@ -16,6 +16,11 @@ logger = logging.getLogger(__name__)
 # FastAPI ilovasini yaratish
 app = FastAPI()
 
+@app.get("/")
+async def root():
+    return {"message": "Bot faqat Telegram orqali ishlaydi | https://t.me/tvbsfdgiejqiwoslsdkd_bot"}
+
+
 # Webhook yo'li va URL manzilini belgilash
 WEBHOOK_PATH = f"/bot/{TELEGRAM_BOT_TOKEN}"
 WEBHOOK_URL = f"{NGROK_TUNNEL_URL}{WEBHOOK_PATH}"
@@ -90,7 +95,7 @@ async def on_shutdown():
     except Exception as e:
         logger.error(f"Webhookni o'chirishda xato yuz berdi: {e}")
 
-    await bot.session.close()  # Bot sessiyasini yopish
+    await dp.bot.get_session().close()  # Yangi usul
     logger.info("Bot sessiyasi yopildi.")
 
 
@@ -99,6 +104,9 @@ async def on_shutdown():
 # if __name__ == "__main__":
 #     logger.info("Uvicorn to'g'ridan-to'g'ri ishga tushirilmoqda...")
 #     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
 if __name__ == "__main__":
     logger.info("Uvicorn to'g'ridan-to'g'ri ishga tushirilmoqda...")
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 443)))
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
