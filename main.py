@@ -24,6 +24,9 @@ async def handle_webhook(request: Request):
 
         # Dict ni Update obyektiga aylantirish
         update = Update(**data)
+
+        # Bot instansini kontekstga o'rnatish
+        await bot.set_current(bot)
         await dp.process_update(update)
         return JSONResponse(status_code=200, content={"status": "ok"})
     except Exception as e:
