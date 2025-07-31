@@ -1,5 +1,5 @@
-import logging
 import os
+import logging
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -7,7 +7,7 @@ from aiogram.types import Update
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from bot import dp, bot
+from bot import dp, bot  # Bot va Dispatcher ni import qilish
 
 # config faylini import qilish
 try:
@@ -36,8 +36,8 @@ async def lifespan_event(app: FastAPI):
     yield
 
     # Ilova to'xtaganda (shutdown)
-    await bot.session.close()
     await bot.delete_webhook()
+    await dp.bot.get_session().close() # Aiogram 2.x uchun to'g'ri usul
     logger.info("Webhook o'chirildi.")
     logger.info("Bot sessiyasi yopildi.")
 
@@ -57,7 +57,8 @@ async def handle_webhook(request: Request):
         data = await request.json()
         logger.info(f"Webhook yangilanishi qabul qilindi (xom lug'at): {data}")
         update = Update(**data)
-        await dp.feed_update(bot, update)
+        # Aiogram 2.x da process_update ishlatiladi, feed_update emas.
+        await dp.process_update(update)
         return JSONResponse(status_code=200, content={"status": "ok"})
     except Exception as e:
         logger.error(f"Webhook xatosi: {e}")
