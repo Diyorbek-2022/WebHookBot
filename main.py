@@ -25,7 +25,7 @@ async def handle_webhook(request: Request):
 
 # Ilova ishga tushganda webhook ni o'rnatish
 async def on_startup():
-    webhook_url = f"{NGROK_TUNNEL_URL}/bot/{bot.token}"
+    webhook_url = f"{NGROK_TUNNEL_URL}/bot/{BOT_TOKEN}"
     await bot.set_webhook(webhook_url)
     logger.info(f"Joriy webhook URL: {webhook_url}")
     logger.info("Ilova ishga tushmoqda...")
