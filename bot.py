@@ -1,29 +1,38 @@
-from random import shuffle
-
+import logging
 from aiogram import Bot, Dispatcher, types
-from aiogram.utils import executor
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
-from config import TELEGRAM_BOT_TOKEN
+from config import BOT_TOKEN
 
-predict = [
-    'Вижу на канал ты подпишешься!',
-    'Bugun senga omad kulib boqadi!',
-    "Bugun sen webhookni qanday ishlatishni o'rganasan!"
-]
+# Logging sozlamalari
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
-dp = Dispatcher(bot)
+# Bot va Dispatcher ni ishga tushirish
+bot = Bot(token=BOT_TOKEN)
+storage = MemoryStorage()
+dp = Dispatcher(bot, storage=storage)
 
-
+# /start handler
 @dp.message_handler(commands=['start'])
-async def start(message: types.Message):
-    print("URAAAAAAAAAAAAA!!!!!!!!!!!!")
-    shuffle(predict)
-    await message.answer(f"{message.from_user.full_name}, {predict[0]}")
+async def send_welcome(message: types.Message):
+    try:
+        await message.reply("Assalomu alaykum! Men sizning botingizman! /help bilan yordam oling.")
+        logger.info(f"User {message.from_user.username} /start ni ishlatdi.")
+    except Exception as e:
+        logger.error(f"/start handler xatosi: {e}")
 
+# /help handler
 @dp.message_handler(commands=['help'])
-async def help(message: types.Message):
-    await message.answer(f"{message.from_user.full_name}, {predict[1]}")
+async def send_help(message: types.Message):
+    try:
+        await message.reply("Bu yerda yordam ma'lumotlari: /start - boshlash uchun.")
+        logger.info(f"User {message.from_user.username} /help ni ishlatdi.")
+    except Exception as e:
+        logger.error(f"/help handler xatosi: {e}")
 
-# if __name__ == '__main__':
-#     executor.start_polling(dp)
+# Boshqa fayllardan foydalanish uchun Dispatcher ni eksport qilamiz
+__all__ = ['dp', 'bot']

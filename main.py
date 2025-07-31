@@ -1,112 +1,58 @@
-import logging  # Loglash uchun kutubxona
 import os
+import logging
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from bot import dp, bot  # bot.py dan Dispatcher va Bot ni import qilamiz
+from config import NGROK_TUNNEL_URL, BOT_TOKEN
 
-from aiogram import types, Bot
-from aiogram.dispatcher.dispatcher import Dispatcher
-from fastapi import FastAPI
-import uvicorn  # FastAPI ilovasini ishga tushirish uchun
-
-from bot import bot, dp
-from config import TELEGRAM_BOT_TOKEN, NGROK_TUNNEL_URL
-
-# Loglashni sozlash: INFO darajasidagi xabarlarni ko'rsatadi
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Logging sozlamalari
 logger = logging.getLogger(__name__)
 
-# FastAPI ilovasini yaratish
+# FastAPI ilovasi
 app = FastAPI()
 
+# Webhook uchun handler
+@app.post(f"/bot/{BOT_TOKEN}")
+async def handle_webhook(request: Request):
+    try:
+        update = await request.json()
+        logger.info(f"Webhook yangilanishi qabul qilindi (xom lug'at): {update}")
+        await dp.process_update(update)
+        return JSONResponse(status_code=200, content={"status": "ok"})
+    except Exception as e:
+        logger.error(f"Webhook xatosi: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# Ilova ishga tushganda webhook ni o'rnatish
+async def on_startup():
+    webhook_url = f"{NGROK_TUNNEL_URL}/bot/{bot.token}"
+    await bot.set_webhook(webhook_url)
+    logger.info(f"Joriy webhook URL: {webhook_url}")
+    logger.info("Ilova ishga tushmoqda...")
+
+# Ilova to'xtaganda webhook ni o'chirish
+async def on_shutdown():
+    await bot.delete_webhook()
+    await dp.bot.get_session().close()
+    logger.info("Webhook o'chirildi.")
+    logger.info("Bot sessiyasi yopildi.")
+
+# Asosiy URL uchun oddiy javob
 @app.get("/")
 async def root():
     return {"message": "Bot faqat Telegram orqali ishlaydi | https://t.me/tvbsfdgiejqiwoslsdkd_bot"}
 
-
-# Webhook yo'li va URL manzilini belgilash
-WEBHOOK_PATH = f"/bot/{TELEGRAM_BOT_TOKEN}"
-WEBHOOK_URL = f"{NGROK_TUNNEL_URL}{WEBHOOK_PATH}"
-
-
+# Startup va shutdown hodisalarini ulash
 @app.on_event("startup")
-async def on_startup():
-    """
-    Ilova ishga tushganda webhookni sozlash.
-    Agar webhook allaqachon to'g'ri o'rnatilgan bo'lsa, qayta o'rnatmaydi.
-    """
-    logger.info("Ilova ishga tushmoqda...")
-    try:
-        # Telegramdan joriy webhook ma'lumotlarini olish
-        current_webhook_info = await bot.get_webhook_info()
-        logger.info(f"Joriy webhook URL: {current_webhook_info.url}")
-
-        # Agar joriy webhook URL bizning URLga mos kelmasa, uni yangilash
-        if current_webhook_info.url != WEBHOOK_URL:
-            await bot.set_webhook(url=WEBHOOK_URL)
-            logger.info(f"Webhook muvaffaqiyatli o'rnatildi: {WEBHOOK_URL}")
-        else:
-            logger.info(f"Webhook allaqachon o'rnatilgan va to'g'ri: {WEBHOOK_URL}")
-    except Exception as e:
-        logger.error(f"Webhookni o'rnatishda xato yuz berdi: {e}")
-        # Xato yuz berganda webhookni o'chirishga urinish, keyingi urinish uchun toza holat yaratish
-        try:
-            await bot.delete_webhook()
-            logger.info("Xato tufayli webhook o'chirildi.")
-        except Exception as delete_e:
-            logger.error(f"Webhookni o'chirishda xato yuz berdi: {delete_e}")
-
-
-@app.post(WEBHOOK_PATH)
-async def handle_webhook(update: dict):
-    """
-    Telegramdan kelgan webhook yangilanishlarini qabul qilish va qayta ishlash.
-    FastAPI avtomatik ravishda JSON so'rovini lug'atga aylantiradi.
-    """
-    logger.info(f"Webhook yangilanishi qabul qilindi (xom lug'at): {update}")
-    try:
-        # Kelgan xom lug'atni aiogramning Update obyektiga aylantirish
-        telegram_update = types.Update(**update)
-        logger.info(f"Aiogram Update obyektiga o'tkazildi. Update ID: {telegram_update.update_id}")
-
-        # Dispatcher va Bot obyektlarini joriy kontekstga o'rnatish
-        # Bu aiogramning ichki mexanizmlari to'g'ri ishlashi uchun muhim
-        Dispatcher.set_current(dp)
-        Bot.set_current(bot)
-
-        # Yangilanishni aiogram dispatcher orqali qayta ishlash
-        await dp.process_update(telegram_update)
-        logger.info("Yangilanish aiogram dispatcher tomonidan qayta ishlandi.")
-        return {"status": "ok"}
-    except Exception as e:
-        logger.error(f"Yangilanishni qayta ishlashda xato yuz berdi: {e}", exc_info=True)
-        # Xato yuz berganda Telegramga xato statusini qaytarish
-        return {"status": "error", "message": str(e)}, 500
-
+async def startup_event():
+    await on_startup()
 
 @app.on_event("shutdown")
-async def on_shutdown():
-    """
-    Ilova o'chirilganda bot sessiyasini yopish va webhookni o'chirish.
-    """
-    logger.info("Ilova o'chirilmoqda...")
-    try:
-        # Rivojlanish paytida webhookni o'chirish yaxshi amaliyotdir
-        # eski webhook URLlari bilan bog'liq muammolarni oldini olish uchun.
-        await bot.delete_webhook()
-        logger.info("Webhook o'chirildi.")
-    except Exception as e:
-        logger.error(f"Webhookni o'chirishda xato yuz berdi: {e}")
-
-    await dp.bot.get_session().close()  # Yangi usul
-    logger.info("Bot sessiyasi yopildi.")
-
-
-# Bu qism faqatgina main.py faylini to'g'ridan-to'g'ri ishga tushirganda ishlaydi.
-# Odatda FastAPI ilovalari "uvicorn main:app --reload" buyrug'i bilan ishga tushiriladi.
-# if __name__ == "__main__":
-#     logger.info("Uvicorn to'g'ridan-to'g'ri ishga tushirilmoqda...")
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
-
+async def shutdown_event():
+    await on_shutdown()
 
 if __name__ == "__main__":
-    logger.info("Uvicorn to'g'ridan-to'g'ri ishga tushirilmoqda...")
+    # Portni environment o'zgaruvchidan olish
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=port, reload=True)
